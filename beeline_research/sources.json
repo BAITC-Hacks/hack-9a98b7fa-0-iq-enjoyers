@@ -1,0 +1,65 @@
+{
+  "checked_on": "2026-09-23",
+  "scope": "Tariff campaign selection, costly pilot exploration, net ARPU and constrained portfolio allocation. This is a curated research snapshot, not an automatic web search or an exhaustive literature review.",
+  "papers": [
+    {
+      "id": "P1",
+      "title": "Budget-Constrained Causal Bandits: Bridging Uplift Modeling and Sequential Decision-Making",
+      "url": "https://arxiv.org/abs/2604.26169v2",
+      "first_submitted": "2026-04-28",
+      "version_date": "2026-08-28",
+      "status": "arXiv preprint, v2",
+      "finding": "Combines online effect learning, exploration and budget pacing when historical data is scarce.",
+      "application_proposal": "Choose the next pilot by expected usefulness for the final budget-constrained campaign plan.",
+      "limitation": "Advertising study; its individual sequential treatment setting differs from this case's batched pilots and ten filter-defined campaigns. Reported performance does not transfer to Beeline."
+    },
+    {
+      "id": "P2",
+      "title": "Multi-channel Uplift Policy Learning",
+      "url": "https://arxiv.org/abs/2607.28182",
+      "first_submitted": "2026-07-30",
+      "status": "arXiv preprint",
+      "finding": "ReAlloc addresses fixed-budget allocation across channels, confounding, extrapolation and cross-channel substitution.",
+      "application_proposal": "Compare channel options jointly under the remaining budget rather than choosing a channel solely by its effectiveness multiplier.",
+      "limitation": "Continuous multi-channel allocation on an e-commerce platform is not the same action space as four discrete telecom channels."
+    },
+    {
+      "id": "P3",
+      "title": "Evaluating Uplift Modeling under Structural Biases: Insights into Metric Stability and Model Robustness",
+      "url": "https://arxiv.org/abs/2603.20775v2",
+      "first_submitted": "2026-03-21",
+      "version_date": "2026-06-16",
+      "status": "arXiv record states accepted by KDD 2026",
+      "finding": "Studies how data biases affect uplift estimates and evaluation; good prediction and good targeting need not coincide.",
+      "application_proposal": "Evaluate actual net campaign value over several seeds and avoid treating historical before/after changes as identified causal effects.",
+      "limitation": "History here has no explicit untreated comparison group or channel field; a causal estimator cannot repair missing experimental identification by itself."
+    },
+    {
+      "id": "P4",
+      "title": "Turning Re-Loyalty Scores into Action: A Mixed-Integer Optimization Framework for Broadband Offers in B2B Telecom",
+      "url": "https://www.scitepress.org/PublishedPapers/2026/146123/",
+      "year": 2026,
+      "status": "ICORES 2026 proceedings, pages 524–531, DOI 10.5220/0014612300004055",
+      "finding": "Combines LightGBM renewal scores with mixed-integer optimization to select broadband offers under business constraints.",
+      "application_proposal": "Use an explicit allocation solver for budget, contact count, campaign count and segment exclusivity.",
+      "limitation": "B2B broadband renewal offers and prediction scores differ from this synthetic tariff-switching experiment. Publisher search-index abstract was available; direct page retrieval returned 403."
+    },
+    {
+      "id": "P5",
+      "title": "Bi-Level Decision-Focused Causal Learning for Large-Scale Marketing Optimization: Bridging Observational and Experimental Data",
+      "url": "https://arxiv.org/abs/2510.19517",
+      "proceedings_url": "https://papers.neurips.cc/paper_files/paper/2025/file/93427bc08aef8f9d6d5366d70284f571-Paper-Conference.pdf",
+      "first_submitted": "2025-10-22",
+      "status": "NeurIPS 2025 proceedings",
+      "finding": "Uses experimental evidence to guide decision-focused learning from biased observational data.",
+      "application_proposal": "Build weak historical priors and update them with current-audience pilots; judge usefulness by final portfolio value.",
+      "limitation": "Its full bi-level training method is a development direction, not required to implement a nine-hour MVP."
+    }
+  ],
+  "github": [
+    {"url": "https://github.com/google/or-tools", "role": "Constrained campaign allocation; MVP can use greedy selection first.", "limitation": "Requires an explicit model of overlap and contact costs; is not a turnkey Beeline agent."},
+    {"url": "https://github.com/fidelity/mabwiser", "role": "Bandit policies for pilot selection.", "limitation": "Budget, contact caps, pilot batches and revenue-valued rewards still need case-specific handling."},
+    {"url": "https://github.com/uber/causalml", "role": "Uplift estimation and multi-treatment methods for later expansion.", "limitation": "Use estimators for continuous revenue outcomes and only with appropriate treatment/control data and assumptions."},
+    {"url": "https://github.com/py-why/EconML", "role": "Heterogeneous treatment effects and policy learning for later expansion.", "limitation": "Historical before/after observations alone do not identify causal effects."}
+  ]
+}

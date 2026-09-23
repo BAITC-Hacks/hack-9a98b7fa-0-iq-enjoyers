@@ -1,0 +1,573 @@
+{
+  "bundle": "/home/hilla/Downloads/beeline_case_participants (1).zip",
+  "bundle_sha256": "df1d955fb97816ff6de8ceb142ed589915d969f43f840a650dcdfbe12734f20b",
+  "method": "Public CSV data only; no environment imports or hidden scoring code reads.",
+  "null_tokens_case_insensitive": [
+    "",
+    "n/a",
+    "na",
+    "nan",
+    "none",
+    "null"
+  ],
+  "tables": {
+    "customer_profile.csv": {
+      "rows": 23441,
+      "exact_duplicate_extra_rows": 0,
+      "column_count": 29,
+      "columns": [
+        "ID_NUMBER",
+        "ARPU_current",
+        "ARPU_3m_avg",
+        "ARPU_trend",
+        "current_tariff",
+        "OUT_LOC_ONNET_MIN",
+        "OUT_LOC_OFFNET_MIN",
+        "OUT_LOC_OFFNET_UNPAID_MIN",
+        "OUT_LOC_OFFNET_PAID_MIN",
+        "OUT_INTER_MIN",
+        "OUT_LOC_LAND_MIN",
+        "OUT_LOCAL_ONNET_SMS_AMT",
+        "OUT_LOCAL_OFFNET_SMS_AMT",
+        "OUT_LOCAL_LAND_PAID_SMS_AMT",
+        "OUT_INTER_SMS_AMT",
+        "DATA_VOLUME",
+        "LTE_DATA_VOLUME",
+        "TOTAL_ROAM_CALL_AMT",
+        "TOTAL_ROAM_SMS_AMT",
+        "TOTAL_ROAM_GPRS_MB",
+        "COUNT_CONTACT",
+        "AVG_TRANSACT_CONTACT",
+        "SUM_TRANSACT_CONTACT",
+        "AVG_DURATION_CONTACT",
+        "COUNT_BASE_STATION",
+        "arpu_segment",
+        "data_segment",
+        "call_segment",
+        "predicted_arpu"
+      ],
+      "missing_by_column": {
+        "ARPU_current": 28,
+        "ARPU_3m_avg": 5,
+        "ARPU_trend": 5,
+        "current_tariff": 95,
+        "OUT_LOC_ONNET_MIN": 110,
+        "OUT_LOC_OFFNET_MIN": 110,
+        "OUT_LOC_OFFNET_UNPAID_MIN": 110,
+        "OUT_LOC_OFFNET_PAID_MIN": 110,
+        "OUT_INTER_MIN": 110,
+        "OUT_LOC_LAND_MIN": 110,
+        "OUT_LOCAL_ONNET_SMS_AMT": 110,
+        "OUT_LOCAL_OFFNET_SMS_AMT": 110,
+        "OUT_LOCAL_LAND_PAID_SMS_AMT": 110,
+        "OUT_INTER_SMS_AMT": 110,
+        "DATA_VOLUME": 110,
+        "LTE_DATA_VOLUME": 110,
+        "TOTAL_ROAM_CALL_AMT": 110,
+        "TOTAL_ROAM_SMS_AMT": 110,
+        "TOTAL_ROAM_GPRS_MB": 110,
+        "COUNT_CONTACT": 470,
+        "AVG_TRANSACT_CONTACT": 470,
+        "SUM_TRANSACT_CONTACT": 470,
+        "AVG_DURATION_CONTACT": 470,
+        "COUNT_BASE_STATION": 162,
+        "arpu_segment": 5,
+        "data_segment": 110
+      },
+      "unique_ids": 23441,
+      "rows_per_id": {
+        "n": 23441,
+        "negative": 0,
+        "zero": 0,
+        "min": 1,
+        "p01": 1.0,
+        "p25": 1.0,
+        "median": 1,
+        "p75": 1.0,
+        "p99": 1.0,
+        "max": 1,
+        "mean": 1
+      }
+    },
+    "data/change_tariff.csv": {
+      "rows": 14823,
+      "exact_duplicate_extra_rows": 6,
+      "column_count": 6,
+      "columns": [
+        "TIME_KEY",
+        "AVG_ARPU_PREV_3M",
+        "AVG_ARPU_NEXT_3M",
+        "ID_NUMBER",
+        "tariff_plan_code_from",
+        "tariff_plan_code_to"
+      ],
+      "missing_by_column": {},
+      "unique_ids": 14817,
+      "rows_per_id": {
+        "n": 14817,
+        "negative": 0,
+        "zero": 0,
+        "min": 1,
+        "p01": 1.0,
+        "p25": 1.0,
+        "median": 1,
+        "p75": 1.0,
+        "p99": 1.0,
+        "max": 2,
+        "mean": 1.00040494027131
+      },
+      "months": {
+        "2026-10-01 00:00:00.0": 14823
+      },
+      "duplicate_id_month_extra_rows": 6,
+      "repeated_id_month_keys": 6,
+      "repeated_id_month_keys_with_different_data": 0
+    },
+    "data/traffic.csv": {
+      "rows": 75736,
+      "exact_duplicate_extra_rows": 0,
+      "column_count": 30,
+      "columns": [
+        "DEVICE_ID",
+        "time_key",
+        "OUT_LOC_ONNET_MIN",
+        "OUT_LOC_OFFNET_MIN",
+        "OUT_LOC_OFFNET_UNPAID_MIN",
+        "OUT_LOC_OFFNET_PAID_MIN",
+        "OUT_INTER_MIN",
+        "OUT_LOC_LAND_MIN",
+        "OUT_LOCAL_ONNET_SMS_AMT",
+        "OUT_LOCAL_OFFNET_SMS_AMT",
+        "OUT_LOCAL_LAND_PAID_SMS_AMT",
+        "OUT_INTER_SMS_AMT",
+        "DATA_VOLUME",
+        "LTE_DATA_VOLUME",
+        "TOTAL_ROAM_CALL_AMT",
+        "TOTAL_ROAM_SMS_AMT",
+        "TOTAL_ROAM_GPRS_MB",
+        "COUNT_CONTACT",
+        "AVG_TRANSACT_CONTACT",
+        "SUM_TRANSACT_CONTACT",
+        "AVG_DURATION_CONTACT",
+        "COUNT_BASE_STATION",
+        "FIRST_DISP_DIAG",
+        "OS_1",
+        "OS_2",
+        "OS_3",
+        "OS_4",
+        "date_issue_device",
+        "ID_NUMBER",
+        "tariff_plan_code"
+      ],
+      "missing_by_column": {
+        "DEVICE_ID": 2697,
+        "COUNT_CONTACT": 3987,
+        "AVG_TRANSACT_CONTACT": 3987,
+        "SUM_TRANSACT_CONTACT": 3987,
+        "AVG_DURATION_CONTACT": 3987,
+        "COUNT_BASE_STATION": 2251,
+        "FIRST_DISP_DIAG": 6302,
+        "OS_1": 6027,
+        "OS_2": 6027,
+        "OS_3": 6027,
+        "OS_4": 6027,
+        "tariff_plan_code": 16725
+      },
+      "unique_ids": 14875,
+      "rows_per_id": {
+        "n": 14875,
+        "negative": 0,
+        "zero": 0,
+        "min": 1,
+        "p01": 1.0,
+        "p25": 5.0,
+        "median": 6,
+        "p75": 6.0,
+        "p99": 6.0,
+        "max": 6,
+        "mean": 5.091495798319328
+      },
+      "months": {
+        "2026-04-01": 11296,
+        "2026-05-01": 11621,
+        "2026-06-01": 11998,
+        "2026-07-01": 12781,
+        "2026-08-01": 13438,
+        "2026-09-01": 14602
+      },
+      "duplicate_id_month_extra_rows": 0,
+      "repeated_id_month_keys": 0,
+      "repeated_id_month_keys_with_different_data": 0
+    },
+    "data/arpu_monthly.csv": {
+      "rows": 78798,
+      "exact_duplicate_extra_rows": 84,
+      "column_count": 3,
+      "columns": [
+        "ARPU_1M",
+        "TIME_KEY",
+        "ID_NUMBER"
+      ],
+      "missing_by_column": {},
+      "unique_ids": 14991,
+      "rows_per_id": {
+        "n": 14991,
+        "negative": 0,
+        "zero": 0,
+        "min": 1,
+        "p01": 1.0,
+        "p25": 5.0,
+        "median": 6,
+        "p75": 6.0,
+        "p99": 7.0,
+        "max": 12,
+        "mean": 5.256353812287372
+      },
+      "months": {
+        "2026-04-01": 11738,
+        "2026-05-01": 12225,
+        "2026-06-01": 12771,
+        "2026-07-01": 13265,
+        "2026-08-01": 14004,
+        "2026-09-01": 14795
+      },
+      "duplicate_id_month_extra_rows": 351,
+      "repeated_id_month_keys": 350,
+      "repeated_id_month_keys_with_different_data": 266
+    },
+    "data/dict_tariff.csv": {
+      "rows": 21,
+      "exact_duplicate_extra_rows": 0,
+      "column_count": 5,
+      "columns": [
+        "Data_in_PKG",
+        "Min_another_operator_in_PKG",
+        "Min_another_operator_and_city_in_PKG",
+        "price_tariff",
+        "tariff_plan_code"
+      ],
+      "missing_by_column": {}
+    },
+    "tariff_dictionary.csv": {
+      "rows": 21,
+      "exact_duplicate_extra_rows": 0,
+      "column_count": 6,
+      "columns": [
+        "Data_in_PKG",
+        "Min_another_operator_in_PKG",
+        "Min_another_operator_and_city_in_PKG",
+        "price_tariff",
+        "tariff_plan_code",
+        "description"
+      ],
+      "missing_by_column": {}
+    },
+    "feature_dictionary.csv": {
+      "rows": 38,
+      "exact_duplicate_extra_rows": 0,
+      "column_count": 3,
+      "columns": [
+        "feature",
+        "unit",
+        "description"
+      ],
+      "missing_by_column": {}
+    }
+  },
+  "id_coverage": {
+    "change_tariff": {
+      "in_profile": 0,
+      "outside_profile": 14817,
+      "profile_missing_from_table": 23441,
+      "in_historical_changes": 14817
+    },
+    "traffic": {
+      "in_profile": 0,
+      "outside_profile": 14875,
+      "profile_missing_from_table": 23441,
+      "in_historical_changes": 14727,
+      "profile_ids_per_month": {
+        "2026-04-01": 0,
+        "2026-05-01": 0,
+        "2026-06-01": 0,
+        "2026-07-01": 0,
+        "2026-08-01": 0,
+        "2026-09-01": 0
+      }
+    },
+    "arpu_monthly": {
+      "in_profile": 0,
+      "outside_profile": 14991,
+      "profile_missing_from_table": 23441,
+      "in_historical_changes": 14817,
+      "profile_ids_per_month": {
+        "2026-04-01": 0,
+        "2026-05-01": 0,
+        "2026-06-01": 0,
+        "2026-07-01": 0,
+        "2026-08-01": 0,
+        "2026-09-01": 0
+      }
+    }
+  },
+  "documents": {
+    "guide_pdf_sha256": "b261a5df8e2555bce5f3ac1545a4daf8a8e5a308c3609bf7c04e7904b4d37e4a",
+    "supplied_document": "/home/hilla/Downloads/HackAlem AI_ Beeline Tariff Marketing Campaigns Case.docx",
+    "supplied_document_sha256": "b261a5df8e2555bce5f3ac1545a4daf8a8e5a308c3609bf7c04e7904b4d37e4a",
+    "has_pdf_magic": true,
+    "identical_to_archive_pdf": true
+  },
+  "profile": {
+    "predicted_arpu_sum_decimal": "150641084.246268422585390",
+    "numeric": {
+      "ARPU_current": {
+        "n": 23413,
+        "negative": 0,
+        "zero": 1208,
+        "min": 0.0,
+        "p01": 0.0,
+        "p25": 3402.98,
+        "median": 6728.36,
+        "p75": 11999.29,
+        "p99": 31085.770400000023,
+        "max": 1417082.91,
+        "mean": 8565.020206936317
+      },
+      "ARPU_3m_avg": {
+        "n": 23436,
+        "negative": 0,
+        "zero": 696,
+        "min": 0.0,
+        "p01": 0.0,
+        "p25": 3012.41,
+        "median": 5930.411666666667,
+        "p75": 8695.622500000001,
+        "p99": 20400.940500000146,
+        "max": 476043.62666666665,
+        "mean": 6412.993416481766
+      },
+      "predicted_arpu": {
+        "n": 23441,
+        "negative": 0,
+        "zero": 103,
+        "min": 0.0,
+        "p01": 280.37,
+        "p25": 4259.967244721007,
+        "median": 6237.8867484220455,
+        "p75": 8198.079680471066,
+        "p99": 16626.357521759383,
+        "max": 216619.82,
+        "mean": 6426.393253114988
+      },
+      "DATA_VOLUME": {
+        "n": 23331,
+        "negative": 0,
+        "zero": 1343,
+        "min": 0.0,
+        "p01": 0.0,
+        "p25": 386.99833333333333,
+        "median": 2029.07,
+        "p75": 6497.0008333333335,
+        "p99": 42919.61833333334,
+        "max": 425742.18,
+        "mean": 5559.335330818796
+      },
+      "OUT_LOC_OFFNET_PAID_MIN": {
+        "n": 23331,
+        "negative": 0,
+        "zero": 11722,
+        "min": 0.0,
+        "p01": 0.0,
+        "p25": 0.0,
+        "median": 0.0,
+        "p75": 3.943333333333334,
+        "p99": 100.05300000000007,
+        "max": 776.365,
+        "mean": 6.988358192962154
+      },
+      "COUNT_BASE_STATION": {
+        "n": 23279,
+        "negative": 0,
+        "zero": 0,
+        "min": 1.0,
+        "p01": 2.3333333333333335,
+        "p25": 15.333333333333334,
+        "median": 20.0,
+        "p75": 20.0,
+        "p99": 20.0,
+        "max": 20.0,
+        "mean": 17.03792402308232
+      }
+    },
+    "segments": {
+      "ARPU_trend": {
+        "": 5,
+        "DECLINING": 4933,
+        "GROWING": 15127,
+        "STABLE": 3376
+      },
+      "arpu_segment": {
+        "": 5,
+        "HIGH": 13918,
+        "LOW": 2738,
+        "MID": 6780
+      },
+      "data_segment": {
+        "": 110,
+        "HEAVY": 11735,
+        "LITE": 10253,
+        "NON_USER": 1343
+      },
+      "call_segment": {
+        "HIGH": 4416,
+        "LOW": 10716,
+        "MEDIUM": 8309
+      },
+      "current_tariff": {
+        "": 95,
+        "tariff_1": 83,
+        "tariff_10": 3965,
+        "tariff_11": 2484,
+        "tariff_12": 1272,
+        "tariff_13": 1789,
+        "tariff_14": 1949,
+        "tariff_15": 108,
+        "tariff_16": 20,
+        "tariff_17": 67,
+        "tariff_18": 67,
+        "tariff_19": 74,
+        "tariff_2": 36,
+        "tariff_20": 50,
+        "tariff_21": 30,
+        "tariff_3": 170,
+        "tariff_4": 3634,
+        "tariff_5": 245,
+        "tariff_6": 119,
+        "tariff_7": 153,
+        "tariff_8": 6904,
+        "tariff_9": 127
+      }
+    },
+    "invalid_nonmissing_current_tariff": 0,
+    "valid_tariff_arpu_cells": 63,
+    "audience_in_valid_cells": 23341,
+    "max_valid_cell_size": 4726,
+    "valid_cells_over_5000": 0,
+    "valid_cells_under_10": 9,
+    "valid_cells_under_200": 42,
+    "arpu_by_segment": {
+      "": {
+        "n": 5,
+        "predicted_arpu_sum": 19099.326761065964
+      },
+      "HIGH": {
+        "n": 13918,
+        "predicted_arpu_sum": 110964488.64727342
+      },
+      "LOW": {
+        "n": 2738,
+        "predicted_arpu_sum": 7837703.878469846
+      },
+      "MID": {
+        "n": 6780,
+        "predicted_arpu_sum": 31819792.39376409
+      }
+    },
+    "arpu_segment_threshold_mismatches_nonmissing": 0,
+    "data_segment_threshold_mismatches_nonmissing": 0
+  },
+  "history": {
+    "numeric": {
+      "AVG_ARPU_PREV_3M": {
+        "n": 14823,
+        "negative": 1,
+        "zero": 1406,
+        "min": -37.41,
+        "p01": 0.0,
+        "p25": 864.39,
+        "median": 3162.72,
+        "p75": 5449.355,
+        "p99": 14274.33040000001,
+        "max": 333832.77,
+        "mean": 3647.3246529042704
+      },
+      "AVG_ARPU_NEXT_3M": {
+        "n": 14823,
+        "negative": 0,
+        "zero": 1609,
+        "min": 0.0,
+        "p01": 0.0,
+        "p25": 772.575,
+        "median": 3627.6,
+        "p75": 5813.1,
+        "p99": 15355.23260000002,
+        "max": 42693.38,
+        "mean": 3951.8024731835662
+      }
+    },
+    "rows_with_nonpositive_before": 1407,
+    "rows_with_positive_before_below_100": 711,
+    "same_source_target_rows": 0,
+    "invalid_tariff_rows": 0,
+    "distinct_transition_pairs_including_invalid": 168,
+    "transition_pair_counts": {
+      "n": 168,
+      "negative": 0,
+      "zero": 0,
+      "min": 1,
+      "p01": 1.0,
+      "p25": 22.75,
+      "median": 44.5,
+      "p75": 102.75,
+      "p99": 508.60000000000025,
+      "max": 814,
+      "mean": 88.23214285714286
+    },
+    "pairs_under_10_rows": 18,
+    "descriptive_change_ratio_positive_before_only": {
+      "n": 13416,
+      "negative": 6597,
+      "zero": 4,
+      "min": -1.0,
+      "p01": -1.0,
+      "p25": -0.4690275774144167,
+      "median": 0.013981849809465641,
+      "p75": 0.6546086329659146,
+      "p99": 398.28570713303264,
+      "max": 592276.0,
+      "mean": 450.3693312033994
+    },
+    "directions_positive_before_only_threshold_10pct": {
+      "UPSELL": 6115,
+      "DOWNSELL": 5706,
+      "FLAT": 1595
+    },
+    "warning": "Before-after differences are descriptive, not identified causal effects."
+  },
+  "tariffs": {
+    "count": 21,
+    "parameter_identical_groups": [
+      [
+        "tariff_5",
+        "tariff_6",
+        "tariff_7",
+        "tariff_8"
+      ]
+    ],
+    "two_dictionaries_agree_on_shared_columns": true,
+    "warning": "Equal package parameters do not establish equal campaign effects."
+  },
+  "monthly_arpu": {
+    "n": 78798,
+    "negative": 4,
+    "zero": 14721,
+    "min": -541.15,
+    "p01": 0.0,
+    "p25": 154.42249999999999,
+    "median": 3055.88,
+    "p75": 5454.5525,
+    "p99": 16284.916399999998,
+    "max": 976802.76,
+    "mean": 3626.2308153760246
+  }
+}

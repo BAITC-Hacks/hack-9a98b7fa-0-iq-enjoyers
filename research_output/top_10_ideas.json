@@ -1,0 +1,422 @@
+{
+  "generated_at": "2026-09-23T07:42:56+00:00",
+  "ideas": [
+    {
+      "rank": 1,
+      "name": "Agentic NOC Incident Commander",
+      "score": 9.7,
+      "problem": "Engineers lose time correlating alarms, KPIs, topology and customer tickets.",
+      "five_hour_demo": "Inject a base-station incident; the agent gathers evidence, finds a root cause, simulates a fix, requests approval and opens a ticket.",
+      "agent_tools": [
+        "get_alarms",
+        "get_kpis",
+        "get_topology",
+        "simulate_fix",
+        "create_ticket"
+      ],
+      "extension": "Connect Prometheus/Grafana, NetBox, ServiceNow or a real operator OSS.",
+      "github_query": "network monitoring incident observability"
+    },
+    {
+      "rank": 2,
+      "name": "Customer Impact & Outage Communication Agent",
+      "score": 9.2,
+      "problem": "Network teams see alarms, while customers experience an unexplained loss of service.",
+      "five_hour_demo": "Map a simulated outage to affected subscribers, prioritize vulnerable users and create personalized Kazakh/Russian status messages.",
+      "agent_tools": [
+        "detect_outage",
+        "find_affected_users",
+        "estimate_eta",
+        "draft_notification"
+      ],
+      "extension": "Add CRM, geospatial coverage, contact-center and notification integrations.",
+      "github_query": "network outage map status monitoring"
+    },
+    {
+      "rank": 3,
+      "name": "Enterprise SLA Assurance Agent",
+      "score": 9.0,
+      "problem": "B2B customers need proactive protection of latency, availability and throughput SLAs.",
+      "five_hour_demo": "Monitor synthetic KPIs, predict an SLA breach, explain the cause and recommend traffic rerouting with human approval.",
+      "agent_tools": [
+        "read_sla",
+        "query_metrics",
+        "forecast_breach",
+        "simulate_reroute",
+        "notify_owner"
+      ],
+      "extension": "Integrate streaming telemetry, contracts and SD-WAN/network controllers.",
+      "github_query": "SLA monitoring anomaly detection"
+    },
+    {
+      "rank": 4,
+      "name": "SIM-Swap and Subscription Fraud Response Agent",
+      "score": 8.7,
+      "problem": "Fraud signals are fragmented across device, account, location and transaction systems.",
+      "five_hour_demo": "Score a suspicious SIM replacement, gather supporting signals, explain the risk and require approval before blocking the account.",
+      "agent_tools": [
+        "get_account_events",
+        "check_device",
+        "check_location",
+        "score_risk",
+        "freeze_sim"
+      ],
+      "extension": "Add graph analytics, streaming events, KYC and bank/fintech signals.",
+      "github_query": "SIM swap fraud detection"
+    },
+    {
+      "rank": 5,
+      "name": "Field Technician Dispatch Copilot",
+      "score": 8.5,
+      "problem": "Repair teams receive incomplete tickets and inefficient routes.",
+      "five_hour_demo": "Turn an alarm into a repair plan, select a technician by skills and distance, prepare a checklist and update the work order.",
+      "agent_tools": [
+        "diagnose_fault",
+        "list_technicians",
+        "optimize_route",
+        "prepare_checklist",
+        "update_work_order"
+      ],
+      "extension": "Connect inventory, maps, workforce management and computer-vision inspection.",
+      "github_query": "field service dispatch route optimization"
+    },
+    {
+      "rank": 6,
+      "name": "Event-Aware Network Capacity Agent",
+      "score": 8.3,
+      "problem": "Concerts, matches and emergencies create local traffic spikes that static planning misses.",
+      "five_hour_demo": "Load an event schedule and traffic history, forecast congestion and propose temporary capacity or load-balancing actions.",
+      "agent_tools": [
+        "read_events",
+        "forecast_traffic",
+        "find_capacity",
+        "simulate_policy",
+        "apply_policy"
+      ],
+      "extension": "Add mobility data, weather, city events and live RAN telemetry.",
+      "github_query": "network traffic forecasting"
+    },
+    {
+      "rank": 7,
+      "name": "RAN Energy Optimization Agent",
+      "score": 8.1,
+      "problem": "Radio sites consume energy even when local traffic is low.",
+      "five_hour_demo": "Forecast hourly load, recommend safe sleep-mode windows and show energy savings without violating coverage constraints.",
+      "agent_tools": [
+        "forecast_load",
+        "check_coverage",
+        "simulate_sleep_mode",
+        "estimate_savings",
+        "schedule_action"
+      ],
+      "extension": "Use real RAN counters, electricity tariffs, weather and carbon-intensity data.",
+      "github_query": "network energy optimization cellular"
+    },
+    {
+      "rank": 8,
+      "name": "Rural Coverage Planning Digital Twin",
+      "score": 7.9,
+      "problem": "Remote communities need better coverage under strict infrastructure budgets.",
+      "five_hour_demo": "Compare candidate tower locations using synthetic terrain, population and cost data, then explain the best investment.",
+      "agent_tools": [
+        "load_population",
+        "load_terrain",
+        "simulate_coverage",
+        "estimate_cost",
+        "rank_sites"
+      ],
+      "extension": "Add OpenStreetMap, elevation, drive-test and regulator coverage data.",
+      "github_query": "radio coverage planning geospatial"
+    },
+    {
+      "rank": 9,
+      "name": "Explainable Tariff and Retention Agent",
+      "score": 7.6,
+      "problem": "Subscribers often overpay, run out of data or churn because plans do not match real usage.",
+      "five_hour_demo": "Analyze a synthetic usage history, recommend a plan, explain savings and execute a plan change only after confirmation.",
+      "agent_tools": [
+        "get_usage",
+        "compare_tariffs",
+        "predict_churn",
+        "explain_offer",
+        "change_plan"
+      ],
+      "extension": "Add billing, campaign systems, consent management and experimentation.",
+      "github_query": "telecom churn prediction"
+    },
+    {
+      "rank": 10,
+      "name": "Open Gateway API Composition Agent",
+      "score": 7.4,
+      "problem": "Developers struggle to discover and combine telecom capabilities such as number verification and device location.",
+      "five_hour_demo": "Describe an application in plain language; the agent selects mock CAMARA APIs, builds a workflow and tests it in a sandbox.",
+      "agent_tools": [
+        "discover_api",
+        "check_consent",
+        "compose_workflow",
+        "run_sandbox",
+        "generate_sdk_code"
+      ],
+      "extension": "Connect GSMA Open Gateway/CAMARA APIs and publish reusable workflows.",
+      "github_query": "CAMARA telecom API"
+    }
+  ],
+  "github_projects": {
+    "Agentic NOC Incident Commander": [
+      {
+        "name": "prometheus/prometheus",
+        "url": "https://github.com/prometheus/prometheus",
+        "description": "Time-series monitoring and alerting toolkit.",
+        "stars": "check GitHub",
+        "language": "Go",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      },
+      {
+        "name": "netbox-community/netbox",
+        "url": "https://github.com/netbox-community/netbox",
+        "description": "Network source of truth with a programmable API.",
+        "stars": "check GitHub",
+        "language": "Python",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      }
+    ],
+    "Customer Impact & Outage Communication Agent": [
+      {
+        "name": "louislam/uptime-kuma",
+        "url": "https://github.com/louislam/uptime-kuma",
+        "description": "Self-hosted service monitoring and status UI.",
+        "stars": "check GitHub",
+        "language": "JavaScript",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      },
+      {
+        "name": "grafana/grafana",
+        "url": "https://github.com/grafana/grafana",
+        "description": "Dashboards and observability visualization.",
+        "stars": "check GitHub",
+        "language": "TypeScript",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      }
+    ],
+    "Enterprise SLA Assurance Agent": [
+      {
+        "name": "prometheus/prometheus",
+        "url": "https://github.com/prometheus/prometheus",
+        "description": "Metrics collection, querying and alerting.",
+        "stars": "check GitHub",
+        "language": "Go",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      },
+      {
+        "name": "grafana/grafana",
+        "url": "https://github.com/grafana/grafana",
+        "description": "SLA dashboards, alerts and incident visualization.",
+        "stars": "check GitHub",
+        "language": "TypeScript",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      }
+    ],
+    "SIM-Swap and Subscription Fraud Response Agent": [
+      {
+        "name": "camaraproject/DeviceSwap",
+        "url": "https://github.com/camaraproject/DeviceSwap",
+        "description": "CAMARA API definitions for checking device/SIM swap signals.",
+        "stars": "check GitHub",
+        "language": "Gherkin",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      },
+      {
+        "name": "camaraproject/NumberVerification",
+        "url": "https://github.com/camaraproject/NumberVerification",
+        "description": "CAMARA number-verification API definitions.",
+        "stars": "check GitHub",
+        "language": "Gherkin",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      }
+    ],
+    "Field Technician Dispatch Copilot": [
+      {
+        "name": "google/or-tools",
+        "url": "https://github.com/google/or-tools",
+        "description": "Vehicle routing and combinatorial optimization solvers.",
+        "stars": "check GitHub",
+        "language": "C++",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      },
+      {
+        "name": "project-osrm/osrm-backend",
+        "url": "https://github.com/project-osrm/osrm-backend",
+        "description": "Open-source routing engine for road networks.",
+        "stars": "check GitHub",
+        "language": "C++",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      }
+    ],
+    "Event-Aware Network Capacity Agent": [
+      {
+        "name": "LibCity/Bigscity-LibCity",
+        "url": "https://github.com/LibCity/Bigscity-LibCity",
+        "description": "Extensible spatial-temporal forecasting library.",
+        "stars": "check GitHub",
+        "language": "Python",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      },
+      {
+        "name": "Nixtla/neuralforecast",
+        "url": "https://github.com/Nixtla/neuralforecast",
+        "description": "Neural forecasting models for time-series data.",
+        "stars": "check GitHub",
+        "language": "Python",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      }
+    ],
+    "RAN Energy Optimization Agent": [
+      {
+        "name": "srsran/srsRAN_4G",
+        "url": "https://github.com/srsran/srsRAN_4G",
+        "description": "Open-source 4G software radio stack for experiments.",
+        "stars": "check GitHub",
+        "language": "C++",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      },
+      {
+        "name": "usnistgov/psc-ns3",
+        "url": "https://github.com/usnistgov/psc-ns3",
+        "description": "Communication-network simulation tools based on ns-3.",
+        "stars": "check GitHub",
+        "language": "C++",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      }
+    ],
+    "Rural Coverage Planning Digital Twin": [
+      {
+        "name": "meshtastic/meshtastic-site-planner",
+        "url": "https://github.com/meshtastic/meshtastic-site-planner",
+        "description": "Terrain-aware RF coverage planner using SPLAT!/ITM.",
+        "stars": "check GitHub",
+        "language": "TypeScript",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      },
+      {
+        "name": "seifreed/geoloc-api",
+        "url": "https://github.com/seifreed/geoloc-api",
+        "description": "Cell-tower geolocation REST API compatible with OpenCellID data.",
+        "stars": "check GitHub",
+        "language": "Python",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      }
+    ],
+    "Explainable Tariff and Retention Agent": [
+      {
+        "name": "estefaniabarrosa/IBM-Telco-Customer-Churn",
+        "url": "https://github.com/estefaniabarrosa/IBM-Telco-Customer-Churn",
+        "description": "End-to-end churn modelling and retention prioritization.",
+        "stars": "check GitHub",
+        "language": "Python",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      },
+      {
+        "name": "IBM/telco-customer-churn-on-icp4d",
+        "url": "https://github.com/IBM/telco-customer-churn-on-icp4d",
+        "description": "IBM telecom churn data-science code pattern.",
+        "stars": "check GitHub",
+        "language": "Jupyter Notebook",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      }
+    ],
+    "Open Gateway API Composition Agent": [
+      {
+        "name": "camaraproject/Commonalities",
+        "url": "https://github.com/camaraproject/Commonalities",
+        "description": "Common design, testing and schema assets for CAMARA APIs.",
+        "stars": "check GitHub",
+        "language": "Gherkin",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      },
+      {
+        "name": "camaraproject/ConnectivityInsights",
+        "url": "https://github.com/camaraproject/ConnectivityInsights",
+        "description": "Connectivity Insights API definitions for network-aware applications.",
+        "stars": "check GitHub",
+        "language": "Gherkin",
+        "updated_at": "",
+        "topics": [],
+        "source": "curated"
+      }
+    ]
+  },
+  "glm_review": null,
+  "sources": [
+    {
+      "title": "HackAlem AI — official requirements",
+      "url": "https://hackalem.ai/",
+      "note": "Agentic AI, offline event, teams up to three, Codex is mandatory."
+    },
+    {
+      "title": "AI & Digital Bridge 2026 programme",
+      "url": "https://digitalbridge.ai/en/aimonth/",
+      "note": "Five-hour build, ten sectors, Codex and OpenAI API are mandatory."
+    },
+    {
+      "title": "Ericsson — Agentic AI for autonomous telecom networks",
+      "url": "https://www.ericsson.com/en/reports-and-papers/white-papers/adapting-agentic-ai",
+      "note": "Closed-loop operations, incident resolution and human oversight."
+    },
+    {
+      "title": "GSMA — Agentic Network for Mobile AI Era",
+      "url": "https://www.gsma.com/solutions-and-impact/technologies/networks/gsma_resources/agentic-network-for-mobile-ai-era/",
+      "note": "AI agents for O&M, deterministic SLA and energy efficiency."
+    },
+    {
+      "title": "TM Forum — AI-native intelligent operations",
+      "url": "https://inform.tmforum.org/research-and-analysis/reports/new-generation-intelligent-operations-an-ai-native-reinvention",
+      "note": "Agents as digital employees for resilient network operations."
+    },
+    {
+      "title": "IETF draft — Network Digital Twin and Agentic AI",
+      "url": "https://datatracker.ietf.org/doc/draft-wmz-nmrg-agent-ndt-arch/",
+      "note": "Testing proposed network actions in a risk-free digital twin."
+    }
+  ],
+  "warnings": [
+    "GITHUB_TOKEN is not set; using manually reviewed GitHub projects. Set the token to add live search results."
+  ]
+}

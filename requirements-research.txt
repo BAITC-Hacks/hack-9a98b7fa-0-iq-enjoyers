@@ -1,0 +1,2 @@
+# Optional historical research tools; NOT required by the competition agent.
+openai>=1.0.0,<3

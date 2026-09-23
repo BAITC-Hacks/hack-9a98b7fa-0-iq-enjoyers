@@ -37,10 +37,17 @@ def main():
     parser.add_argument("--baseline", action="store_true")
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--make-submission", action="store_true")
+    parser.add_argument("--output-dir", type=Path, help="new directory for this run (must not exist)")
     args = parser.parse_args()
     if not 1 <= args.runs <= 100:
         parser.error("--runs must be between 1 and 100")
-    run_dir = ROOT / "artifacts" / (time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8])
+    if not args.bundle.is_file():
+        parser.error("Bundle not found. Supply the organizer ZIP with --bundle; no source-code edits are needed.")
+    if not args.baseline and not args.agent.is_file():
+        parser.error("Agent file not found")
+    run_dir = (args.output_dir or (ROOT / "artifacts" / (time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8]))).resolve()
+    if run_dir.exists():
+        parser.error("Output directory already exists; existing results will not be overwritten")
     work = run_dir / "bundle"
     work.mkdir(parents=True)
     with zipfile.ZipFile(args.bundle) as archive:
@@ -95,8 +102,27 @@ def main():
     manifest["rejected_campaign_warning"] = bool(re.search(r"Кампания[^\n]*отброшена", output))
     manifest["net_by_seed"] = [{"seed": int(seed), "net": int(net.replace(",", ""))}
                                 for seed, net in re.findall(r"seed\s+(\d+):\s*чистый результат\s+(-?[\d,]+)", output)]
+    single_net = re.search(r"ЧИСТЫЙ РЕЗУЛЬТАТ \(net\):\s*(-?[\d,]+)", output)
+    manifest["single_net"] = int(single_net.group(1).replace(",", "")) if single_net else None
+    if code == 0 and not args.baseline:
+        try:
+            if __package__:
+                from .validate_run import validate_run
+            else:
+                from validate_run import validate_run
+            manifest["validation"] = validate_run(work, run_dir / "traces",
+                                                  1 if args.make_submission else args.runs,
+                                                  submission=args.make_submission)
+            if manifest["rejected_campaign_warning"]:
+                raise ValueError("Official evaluator rejected a campaign")
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            code = 3
+            manifest["validation"] = {"valid": False, "error": str(error)}
+    manifest["returncode"] = code
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(output)
+    if manifest.get("validation", {}).get("valid") is False:
+        print(f"Independent validation FAILED: {manifest['validation']['error']}")
     print(f"Exit: {code}; elapsed: {manifest['elapsed_seconds']}s; report: {manifest_path}")
     raise SystemExit(code)
 

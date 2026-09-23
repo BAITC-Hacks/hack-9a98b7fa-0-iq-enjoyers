@@ -15,11 +15,24 @@ import uuid
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import Bounds, LinearConstraint, milp
+try:
+    from scipy.optimize import Bounds, LinearConstraint, milp
+except ImportError:  # Explicitly supported, validated greedy fallback.
+    Bounds = LinearConstraint = milp = None
 
 # Public channel prices. Read-only published case parameters, not hidden effects.
 CHANNELS = {"push": (0.0, 0.50), "sms": (4.0, 0.65),
             "digital_ads": (22.0, 0.85), "call": (160.0, 1.20)}
+SPLIT_FILTERS = (("data_segment", {"NON_USER", "LITE", "HEAVY"}),
+                 ("call_segment", {"LOW", "MEDIUM", "HIGH"}))
+
+
+class AgentInputError(ValueError):
+    """The public inputs cannot produce a supported, valid campaign."""
+
+
+class PilotUnavailableError(RuntimeError):
+    """No usable pilot completed; do not pretend a submission is compliant."""
 
 
 @dataclass
@@ -35,15 +48,24 @@ class Candidate:
     variance: float
     sampled: int = 0
     pilots: int = 0
+    data_segment: str | None = None
+    call_segment: str | None = None
 
     @property
     def cost(self):
         return self.n * CHANNELS[self.channel][0]
 
+    def filters(self):
+        result = {"filter_current_tariff": self.current, "filter_arpu_segment": self.segment}
+        if self.data_segment is not None:
+            result["filter_data_segment"] = self.data_segment
+        if self.call_segment is not None:
+            result["filter_call_segment"] = self.call_segment
+        return result
+
     def campaign(self):
         return {"campaign_name": f"PP_{self.cell}_{self.target}_{self.channel}",
-                "filter_current_tariff": self.current, "filter_arpu_segment": self.segment,
-                "target_tariff": self.target, "channel": self.channel}
+                **self.filters(), "target_tariff": self.target, "channel": self.channel}
 
 
 def update_estimate(mean, variance, observed, n, noise_scale=1.0):
@@ -91,7 +113,7 @@ def allocate(candidates, values, budget, contacts, exact=True):
         value = float(values[selected].sum())
         if value > best_value:
             best, best_value = selected, value
-    if exact:
+    if exact and milp is not None:
         subset = [candidates[i] for i in valid]
         cells = sorted({c.cell for c in subset})
         matrix = np.array([[c.cost for c in subset], [c.n for c in subset], [1] * len(subset)]
@@ -113,14 +135,19 @@ def allocate(candidates, values, budget, contacts, exact=True):
 
 class Agent:
     def __init__(self, mode=None, history_path="data/change_tariff.csv", risk_weight=0.75,
-                 max_pilots=20, time_limit=240.0):
+                 max_pilots=20, time_limit=240.0, max_cell_size=5000):
         self.mode = mode or os.environ.get("PROFITPILOT_MODE", "fixed")
         if self.mode not in {"adaptive", "fixed"}:
             raise ValueError("mode must be adaptive or fixed")
         self.history_path = Path(history_path)
+        if not self.history_path.is_absolute() and not self.history_path.is_file():
+            self.history_path = Path(__file__).resolve().parent / self.history_path
         self.risk_weight = risk_weight
         self.max_pilots = min(20, max(1, max_pilots))
         self.time_limit = time_limit
+        if not 10 <= max_cell_size <= 5000:
+            raise ValueError("max_cell_size must be between 10 and 5000")
+        self.max_cell_size = max_cell_size
         self.trace = {}
 
     def _history(self):
@@ -140,28 +167,54 @@ class Agent:
         except (OSError, KeyError, ValueError):
             return {}
 
+    def _partition(self, group, filters=None, depth=0):
+        """Disjoint leaves expressible by public filters; never split by row IDs."""
+        filters = {} if filters is None else filters
+        if 10 <= len(group) <= self.max_cell_size:
+            yield group, filters
+        elif len(group) > self.max_cell_size and depth < len(SPLIT_FILTERS):
+            column, allowed = SPLIT_FILTERS[depth]
+            if column not in group.columns:
+                yield from self._partition(group, filters, depth + 1)
+            else:
+                for value, child in group.groupby(column, observed=True):
+                    if str(value) in allowed:
+                        yield from self._partition(child, {**filters, column: str(value)}, depth + 1)
+
     def _candidates(self, env):
         profile = env.customer_profile.copy()
+        required = {"current_tariff", "arpu_segment", "predicted_arpu"}
+        if not required.issubset(profile.columns) or "tariff_plan_code" not in env.tariffs:
+            raise AgentInputError("Missing required public profile/tariff columns")
         tariffs = sorted(set(env.tariffs["tariff_plan_code"].dropna().astype(str)))
         history = self._history()
         profile["predicted_arpu"] = (pd.to_numeric(profile["predicted_arpu"], errors="coerce")
                                      .replace([np.inf, -np.inf], np.nan).fillna(0).clip(lower=0))
         self.arpu_prefix = {}
         candidates = []
-        for cell, ((current, segment), group) in enumerate(profile.groupby(["current_tariff", "arpu_segment"], observed=True)):
+        groups = list(profile.groupby(["current_tariff", "arpu_segment"], observed=True))
+        extra_cell = len(groups)
+        for base_cell, ((current, segment), group) in enumerate(groups):
             current, segment = str(current), str(segment)
-            if current not in tariffs or segment not in {"LOW", "MID", "HIGH"} or not 10 <= len(group) <= 5000:
+            if current not in tariffs or segment not in {"LOW", "MID", "HIGH"}:
                 continue
-            arp = np.sort(group["predicted_arpu"].to_numpy(dtype=float))[::-1]
-            self.arpu_prefix[cell] = np.concatenate(([0.0], np.cumsum(arp)))
             alternatives = [t for t in tariffs if t != current]
             # No hard-coded winning tariff IDs; ties remain deterministic.
             targets = sorted(alternatives, key=lambda t: (-history.get((current, t), 0.0), t))[:3]
-            for target in targets:
-                for channel, (_, factor) in CHANNELS.items():
-                    prior = 0.20 * history.get((current, target), 0.0) * factor
-                    candidates.append(Candidate(cell, current, segment, target, channel,
-                                                len(group), float(arp.sum()), prior, 0.20 ** 2))
+            for part, (leaf, filters) in enumerate(self._partition(group)):
+                cell = base_cell if part == 0 else extra_cell
+                extra_cell += int(part > 0)
+                arp = np.sort(leaf["predicted_arpu"].to_numpy(dtype=float))[::-1]
+                self.arpu_prefix[cell] = np.concatenate(([0.0], np.cumsum(arp)))
+                for target in targets:
+                    for channel, (_, factor) in CHANNELS.items():
+                        prior = 0.20 * history.get((current, target), 0.0) * factor
+                        candidates.append(Candidate(cell, current, segment, target, channel,
+                                                    len(leaf), float(arp.sum()), prior, 0.20 ** 2,
+                                                    data_segment=filters.get("data_segment"),
+                                                    call_segment=filters.get("call_segment")))
+        if not candidates:
+            raise AgentInputError("No eligible segment of 10..5000 customers can be expressed using the public filters")
         return candidates
 
     def _value(self, c, exposure, mean=None, variance=None):
@@ -248,7 +301,7 @@ class Agent:
     def act(self, env):
         started = time.monotonic()
         candidates = self._candidates(env)
-        self.trace = {"schema": 1, "mode": self.mode, "pilots": [], "decisions": [],
+        self.trace = {"schema": 2, "mode": self.mode, "pilots": [], "pilot_failures": [], "decisions": [],
                       "assumptions": ["observed_lift_ratio is treated as channel-adjusted; confirm with organizers",
                                       "Gaussian working noise scale=1; uncertainty is not calibrated",
                                       "pilot overlap is conservatively approximated, not observed by ID"],
@@ -257,35 +310,51 @@ class Agent:
         initial_budget = float(env.remaining_budget)
         # Cap exploration spending; push pilots still consume contacts.
         pilot_budget = initial_budget * 0.25
-        for iteration in range(self.max_pilots):
-            if not candidates or env.pilots_left <= 0 or time.monotonic() - started > self.time_limit - 5:
+        unavailable, failure_counts = set(), {}
+        attempts = 0
+        while attempts < self.max_pilots:
+            eligible = [c for c in candidates if (c.cell, c.target, c.channel) not in unavailable]
+            if not eligible or env.pilots_left <= 0 or time.monotonic() - started > self.time_limit - 5:
                 break
-            choice = self._next_pilot(candidates, exposure, float(env.remaining_budget),
-                                      int(env.remaining_contacts), pilot_budget, iteration)
+            choice = self._next_pilot(eligible, exposure, float(env.remaining_budget),
+                                      int(env.remaining_contacts), pilot_budget, len(self.trace["pilots"]))
             if choice is None:
                 break
             c, n, selection_score = choice
             before_budget = float(env.remaining_budget)
             before_contacts = int(env.remaining_contacts)
+            before_quota = int(env.pilots_left)
+            attempts += 1
+            error_name, retryable, result = None, False, None
             try:
                 result = env.run_pilot(target_tariff=c.target, channel=c.channel, n_customers=n,
-                                       filter_current_tariff=c.current, filter_arpu_segment=c.segment)
-            except (RuntimeError, ValueError) as error:
-                self.trace["pilot_error"] = type(error).__name__
-                break
+                                       **c.filters())
+            except (RuntimeError, ValueError, TimeoutError, ConnectionError) as error:
+                error_name = type(error).__name__
+                retryable = not isinstance(error, ValueError)
             # Track resources from public counters, even if a result is unusable.
             spent = max(0.0, before_budget - float(env.remaining_budget))
             consumed = max(0, before_contacts - int(env.remaining_contacts))
             pilot_budget = max(0.0, pilot_budget - spent)
             exposure[c.cell] = exposure.get(c.cell, 0) + consumed
-            try:
-                observed = float(result["observed_lift_ratio"])
-            except (KeyError, TypeError, ValueError):
-                self.trace["pilot_error"] = "invalid_observed_lift_ratio"
-                break
-            if not math.isfinite(observed):
-                self.trace["pilot_error"] = "nonfinite_observed_lift_ratio"
-                break
+            if error_name is None:
+                try:
+                    observed = float(result["observed_lift_ratio"])
+                    if not math.isfinite(observed):
+                        error_name = "nonfinite_observed_lift_ratio"
+                except (KeyError, TypeError, ValueError):
+                    error_name = "invalid_observed_lift_ratio"
+            if error_name is not None:
+                key = (c.cell, c.target, c.channel)
+                failure_counts[key] = failure_counts.get(key, 0) + 1
+                unchanged = spent == 0 and consumed == 0 and int(env.pilots_left) == before_quota
+                retry = retryable and unchanged and failure_counts[key] < 3
+                if not retry:
+                    unavailable.add(key)
+                self.trace["pilot_failures"].append({**c.campaign(), "reason": error_name,
+                                                       "attempt": attempts, "spent": spent,
+                                                       "contacts": consumed, "retry_same_action": retry})
+                continue
             c.mean, c.variance = update_estimate(c.mean, c.variance, observed, n)
             c.sampled += n
             c.pilots += 1
@@ -298,9 +367,11 @@ class Agent:
                                           "plan_after": [x.campaign()["campaign_name"] for x in plan],
                                           "plan_incremental_net_proxy": proxy})
         pool = [c for c in candidates if c.pilots > 0]
-        # A valid final campaign is mandatory, including in all-negative cases.
+        self.trace["pilot_attempts"] = attempts
         if not pool:
-            pool = candidates
+            self.trace["status"] = "no_usable_pilot"
+            self._write_trace()
+            raise PilotUnavailableError(f"No usable pilot after {attempts} attempts; refusing an untested submission")
         values = [self._value(c, exposure) for c in pool]
         indices = allocate(pool, values, float(env.remaining_budget), int(env.remaining_contacts), exact=True)
         selected = [pool[i] for i in indices]
@@ -311,10 +382,17 @@ class Agent:
                                              "mean": c.mean, "working_sd": math.sqrt(c.variance),
                                              "incremental_net_proxy": values[i]})
         self.trace.update({"elapsed_seconds": time.monotonic() - started,
+                           "status": "ready" if selected else "no_feasible_plan",
                            "final_campaigns": len(selected), "final_cost": sum(c.cost for c in selected),
                            "final_contacts": sum(c.n for c in selected),
                            "remaining_budget_before_final": float(env.remaining_budget),
                            "remaining_contacts_before_final": int(env.remaining_contacts)})
+        self._write_trace()
+        if not selected:
+            raise AgentInputError("Remaining resources cannot fund a valid tested campaign")
+        return [c.campaign() for c in selected]
+
+    def _write_trace(self):
         trace_dir = os.environ.get("PROFITPILOT_TRACE_DIR")
         if trace_dir:
             try:
@@ -324,4 +402,3 @@ class Agent:
                     json.dumps(self.trace, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
             except (OSError, ValueError):
                 pass  # Reporting must never invalidate campaigns.
-        return [c.campaign() for c in selected]

@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from agent import Agent, Candidate, CHANNELS, allocate, feasible, update_estimate
+from agent import (Agent, AgentInputError, Candidate, CHANNELS, PilotUnavailableError,
+                   allocate, feasible, update_estimate)
 
 
 def candidate(cell, n=50, channel="sms", target="tariff_b"):
@@ -72,10 +73,14 @@ class PublicTestEnv:
         self.invalid = invalid
 
     def run_pilot(self, *, target_tariff, channel, n_customers,
-                  filter_current_tariff, filter_arpu_segment):
+                  filter_current_tariff, filter_arpu_segment,
+                  filter_data_segment=None, filter_call_segment=None):
         group = self.customer_profile[
             (self.customer_profile.current_tariff == filter_current_tariff)
             & (self.customer_profile.arpu_segment == filter_arpu_segment)]
+        for column, value in (("data_segment", filter_data_segment), ("call_segment", filter_call_segment)):
+            if value is not None:
+                group = group[group[column] == value]
         assert 10 <= n_customers <= min(200, len(group))
         assert self.pilots_left > 0
         cost = n_customers * CHANNELS[channel][0]
@@ -106,11 +111,14 @@ def test_agent_public_contract_offline(mode, effect, tmp_path, monkeypatch):
     assert agent.trace["elapsed_seconds"] < 5
 
 
-def test_invalid_pilot_result_does_not_crash(tmp_path):
+def test_invalid_pilots_do_not_produce_fake_valid_submission(tmp_path):
     env = PublicTestEnv(invalid=True)
     agent = Agent(history_path=tmp_path / "missing.csv")
-    assert len(agent.act(env)) >= 1
-    assert agent.trace["pilot_error"] == "nonfinite_observed_lift_ratio"
+    with pytest.raises(PilotUnavailableError, match="No usable pilot"):
+        agent.act(env)
+    assert len(agent.trace["pilots"]) == 0
+    assert all(p["reason"] == "nonfinite_observed_lift_ratio" for p in agent.trace["pilot_failures"])
+    assert len(env.pilot_history) <= 20
 
 
 def test_history_is_robust_to_zero_denominators_and_duplicate_rows(tmp_path):
@@ -129,5 +137,109 @@ def test_solver_failure_has_valid_fallback(monkeypatch):
     def failed(*args, **kwargs):
         raise RuntimeError("solver unavailable")
     monkeypatch.setattr(agent, "milp", failed)
+    pool = [candidate(0), candidate(1, channel="push")]
+    assert feasible(allocate(pool, [100, 200], 200, 100), pool, 200, 100)
+
+
+@pytest.mark.parametrize("mode", ["fixed", "adaptive"])
+def test_first_transient_pilot_error_is_recovered(mode, tmp_path):
+    env = PublicTestEnv()
+    original = env.run_pilot
+    attempts = []
+    def intermittent(**kwargs):
+        attempts.append(kwargs)
+        if len(attempts) == 1:
+            raise RuntimeError("temporary failure")
+        return original(**kwargs)
+    env.run_pilot = intermittent
+    agent = Agent(mode=mode, history_path=tmp_path / "missing.csv", max_pilots=6)
+    assert 1 <= len(agent.act(env)) <= 10
+    assert len(env.pilot_history) > 0
+    assert attempts[0] == attempts[1]
+    assert len(attempts) <= 6
+    assert agent.trace["pilot_failures"][0]["retry_same_action"]
+
+
+def test_permanent_failure_is_bounded_and_explicit(tmp_path):
+    env = PublicTestEnv()
+    attempts = []
+    def failing(**kwargs):
+        attempts.append(kwargs)
+        raise RuntimeError("unavailable")
+    env.run_pilot = failing
+    agent = Agent(history_path=tmp_path / "missing.csv", max_pilots=6)
+    with pytest.raises(PilotUnavailableError):
+        agent.act(env)
+    assert len(attempts) == 6
+    assert attempts[0] == attempts[2]
+    assert attempts[2] != attempts[3]
+
+
+def test_charged_error_is_accounted_for_and_not_blindly_retried(tmp_path):
+    env = PublicTestEnv()
+    original = env.run_pilot
+    attempts = []
+    def charged(**kwargs):
+        attempts.append(kwargs)
+        result = original(**kwargs)
+        if len(attempts) == 1:
+            raise RuntimeError("response lost after resource consumption")
+        return result
+    env.run_pilot = charged
+    agent = Agent(history_path=tmp_path / "missing.csv", max_pilots=6)
+    assert agent.act(env)
+    failure = agent.trace["pilot_failures"][0]
+    assert failure["contacts"] > 0 and not failure["retry_same_action"]
+    assert attempts[0]["target_tariff"] != attempts[1]["target_tariff"]
+    assert agent.trace["final_contacts"] <= env.remaining_contacts
+
+
+@pytest.mark.parametrize("split_by", ["data", "calls"])
+def test_large_cell_is_split_by_supported_filters(split_by, tmp_path):
+    env = PublicTestEnv()
+    env.customer_profile = pd.DataFrame({
+        "ID_NUMBER": range(5001), "current_tariff": "tariff_a", "arpu_segment": "HIGH",
+        "predicted_arpu": 1000.0,
+        "data_segment": ["LITE" if split_by == "data" and i % 2 else "HEAVY" for i in range(5001)],
+        "call_segment": ["LOW" if i % 2 else "HIGH" for i in range(5001)],
+    })
+    agent = Agent(history_path=tmp_path / "missing.csv", max_pilots=4)
+    campaigns = agent.act(env)
+    assert campaigns and env.pilot_history
+    seen = set()
+    for campaign in campaigns:
+        selected = env.customer_profile
+        for name in ("current_tariff", "arpu_segment", "data_segment", "call_segment"):
+            if campaign.get("filter_" + name) is not None:
+                selected = selected[selected[name] == campaign["filter_" + name]]
+        ids = set(selected.ID_NUMBER)
+        assert 10 <= len(ids) <= 5000
+        assert not seen.intersection(ids)
+        seen.update(ids)
+        assert "filter_data_segment" in campaign
+        if split_by == "calls":
+            assert "filter_call_segment" in campaign
+
+
+def test_unrepresentable_profile_reports_input_problem(tmp_path):
+    env = PublicTestEnv()
+    env.customer_profile = pd.DataFrame({"ID_NUMBER": range(5001), "current_tariff": "tariff_a",
+                                         "arpu_segment": "HIGH", "predicted_arpu": 1000})
+    with pytest.raises(AgentInputError, match="No eligible segment"):
+        Agent(history_path=tmp_path / "missing.csv").act(env)
+
+
+def test_zero_budget_still_uses_free_pilot_and_valid_campaign(tmp_path):
+    env = PublicTestEnv()
+    env.remaining_budget = 0
+    agent = Agent(history_path=tmp_path / "missing.csv")
+    campaigns = agent.act(env)
+    assert campaigns and env.pilot_history
+    assert all(c["channel"] == "push" for c in campaigns)
+
+
+def test_missing_scipy_has_valid_fallback(monkeypatch):
+    import agent
+    monkeypatch.setattr(agent, "milp", None)
     pool = [candidate(0), candidate(1, channel="push")]
     assert feasible(allocate(pool, [100, 200], 200, 100), pool, 200, 100)

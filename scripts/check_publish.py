@@ -17,7 +17,7 @@ def check_path(name):
     path = PurePosixPath(name)
     if path.name.startswith(".env") and path.name != ".env.example":
         return "local environment file"
-    if any(part in {"artifacts", "data", ".venv", "__pycache__", "organizer_questions"} for part in path.parts):
+    if any(part in {"artifacts", "data", ".venv", ".venv-agent", "__pycache__", "organizer_questions"} for part in path.parts):
         return "private/generated directory"
     if path.suffix.lower() in {".zip", ".pem", ".key", ".csv"}:
         return "raw data/archive/key file"

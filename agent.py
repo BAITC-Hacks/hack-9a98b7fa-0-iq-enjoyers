@@ -2,6 +2,10 @@
 
 Only the documented env API is used. Optional local LLM advice is constrained
 to a candidate allowlist; no external API, hidden-state inspection or mock effects.
+
+History covariance and knowledge-gradient exploration adapted from our team's
+second project Kasym-CS/Temiku, commit f88a4d56d90392a3744b43f83c3517cb884cbc00.
+ProfitPilot retains its own constrained allocator, trace and failure recovery.
 """
 from __future__ import annotations
 
@@ -236,13 +240,14 @@ class TransferPosterior:
         features = []
         for segment in segments:
             mask = np.array([c.segment == segment for c in arms], dtype=float)
-            features.extend((0.25 * scales * mask, 0.5 * signals * mask))
+            # Learned history-transfer coefficient and a small shared floor.
+            features.extend((0.005 * mask, 0.35 * signals * mask))
         for segment, target in groups:
-            features.append(scales * np.array([0.7 if (c.segment, c.target) == (segment, target) else 0.0
+            features.append(scales * np.array([math.sqrt(0.5) if (c.segment, c.target) == (segment, target) else 0.0
                                                for c in arms]))
         x = np.array(features).T
-        self.mean = 0.25 * signals
-        self.cov = x @ x.T + np.diag((0.7 * scales) ** 2)
+        self.mean = 0.5 * signals
+        self.cov = x @ x.T + np.diag(0.5 * scales ** 2 + 0.03 ** 2)
         self.prior_variance = np.diag(self.cov).copy()
         self.counts = np.zeros(n, dtype=int)
         self.samples = np.zeros(n, dtype=int)
@@ -254,7 +259,7 @@ class TransferPosterior:
     def update(self, index, observation, n, factor):
         # Public channel multiplier is a prior transfer assumption; observed
         # lift is interpreted as already channel-adjusted, as in legacy mode.
-        noise = 1.0 / (n * factor ** 2)
+        noise = 0.86 ** 2 / (n * factor ** 2)
         column = self.cov[:, index].copy()
         denominator = self.cov[index, index] + noise
         self.mean += column / denominator * (observation / factor - self.mean[index])
@@ -373,7 +378,12 @@ class Agent:
         return float(gain - c.cost)
 
     def _transfer_history(self):
-        """Segment-aware associations; transition shares are NOT conversion rates."""
+        """Temiku team's smoothed associations, not causal conversion estimates.
+
+        Return a prior signal and scale per pair. Popular transitions may deviate
+        substantially from history; rare transitions should not inherit their
+        uncertainty merely because their customer segment has high ARPU.
+        """
         try:
             frame = pd.read_csv(self.history_path).drop_duplicates()
             before = pd.to_numeric(frame["AVG_ARPU_PREV_3M"], errors="coerce")
@@ -381,13 +391,31 @@ class Agent:
             good = (before >= 100) & (after >= 0) & np.isfinite(before) & np.isfinite(after)
             frame = frame.loc[good].copy()
             frame["segment"] = np.where(before[good] < 1000, "LOW", np.where(before[good] > 5000, "HIGH", "MID"))
-            frame["change"] = (after[good] / before[good] - 1).clip(-0.8, 1.5)
+            frame["change"] = (after[good] / before[good] - 1).clip(-1.0, 3.0)
             keys = ["tariff_plan_code_from", "segment", "tariff_plan_code_to"]
-            stats = frame.groupby(keys)["change"].agg(["mean", "count"])
+            stats = frame.groupby(keys)["change"].agg(["mean", "count", "var"])
             totals = frame.groupby(keys[:2]).size()
-            return {tuple(map(str, key)): float(np.clip(row["mean"] * row["count"] /
-                    max(float(totals.loc[key[:2]]), 1) * row["count"] / (row["count"] + 8), -0.5, 0.6))
-                    for key, row in stats.iterrows()}
+            segment_targets = frame.groupby(keys[1:])["change"].agg(["mean", "count"])
+            segment_totals = frame.groupby("segment").size()
+            spreads = {}
+            for segment, rows in stats[stats["count"] >= 5].groupby(level=1):
+                between = rows["mean"].var() - (rows["var"] / rows["count"]).mean() if len(rows) > 2 else 0.0
+                spreads[str(segment)] = max(math.sqrt(max(float(between), 0.0)), 0.1) if np.isfinite(between) else 0.1
+            result = {}
+            cells = set(totals.index) | {(c.current, c.segment) for c in getattr(self, "arms", [])}
+            for current, segment in sorted(cells):
+                total = float(totals.get((current, segment), 0))
+                for (target_segment, target), group in segment_targets.iterrows():
+                    if target_segment != segment:
+                        continue
+                    key = current, segment, target
+                    count = float(stats.loc[key, "count"]) if key in stats.index else 0.0
+                    pair_mean = float(stats.loc[key, "mean"]) if count else 0.0
+                    group_share = float(group["count"]) / float(segment_totals.loc[segment])
+                    pct = (count * pair_mean + 10 * float(group["mean"])) / (count + 10)
+                    share = (count + 10 * group_share) / (float(total) + 10)
+                    result[tuple(map(str, key))] = (pct * share, share * spreads.get(str(segment), 0.1))
+            return result
         except (OSError, KeyError, ValueError):
             return {}
 
@@ -395,12 +423,12 @@ class Agent:
         self.arms = [c for c in candidates if c.channel == "sms"]
         self.arm_index = {(c.cell, c.target): i for i, c in enumerate(self.arms)}
         history = self._transfer_history()
-        signals = [history.get((c.current, c.segment, c.target), 0.0) for c in self.arms]
-        # Keep missing history uncertain; observed tiny historical associations
-        # get a nonzero floor, rather than the same variance as large shifts.
-        # This regularizer is an explicit assumption, not a hidden-effect fit.
-        scales = [0.03 + 0.5 * abs(signal) if (c.current, c.segment, c.target) in history else 0.15
-                  for c, signal in zip(self.arms, signals)]
+        # Missing direction in an available history is different from a missing
+        # dataset. It retains the covariance's nonzero 0.03 residual floor, not
+        # an artificial 0.1-scale signal that makes high-ARPU cells monopolize KG.
+        missing = (0.0, 0.0) if history else (0.0, 0.1)
+        estimates = [history.get((c.current, c.segment, c.target), missing) for c in self.arms]
+        signals, scales = zip(*estimates)
         self.posterior = TransferPosterior(self.arms, signals, scales)
         self.cell_ids = sorted({c.cell for c in self.arms})
         cell_positions = {cell: i for i, cell in enumerate(self.cell_ids)}
@@ -423,17 +451,31 @@ class Agent:
 
     def _transfer_pool(self, candidates, exposure, *, pack=False):
         """Require pilot support. Bundles are unions of disjoint public filters."""
-        observed_groups = {(c.segment, c.target) for c, count in zip(self.arms, self.posterior.counts) if count}
         reduction = 1 - self.posterior.variance / self.posterior.prior_variance
         pool, values = [], []
         for c in candidates:
             i = self.arm_index[c.cell, c.target]
-            value = self._value(c, exposure)
             direct = self.posterior.counts[i] > 0
-            supported = (c.segment, c.target) in observed_groups and reduction[i] >= 0.03 and value > 0
-            if direct or supported:
+            # A learned segment-level history coefficient can support another
+            # target too; require material variance reduction, not an ID match.
+            supported = reduction[i] >= 0.25
+            covered = min(c.n, exposure.get(c.cell, 0))
+            available_arpu = c.arpu - self.arpu_prefix[c.cell][covered]
+            multiplier = {"push": 0.5, "sms": 1.0, "digital_ads": 1.645, "call": 1.645}[c.channel]
+            low = c.mean - multiplier * self.risk_weight / 0.75 * math.sqrt(c.variance)
+            lower_value = low * (available_arpu if low >= 0 else c.arpu) - c.cost
+            value = c.mean * (available_arpu if c.mean >= 0 else c.arpu) - c.cost
+            if (direct or supported) and lower_value > 0:
                 pool.append(c)
                 values.append(value)
+        if not pool:
+            # Mandatory 1..10 campaign contract: retain the least-risk, tested
+            # free action when no profitable option is supported by evidence.
+            fallback = [c for c in candidates if c.channel == "push" and
+                        self.posterior.counts[self.arm_index[c.cell, c.target]] > 0]
+            if fallback:
+                pool.extend(fallback)
+                values.extend(self._value(c, exposure) for c in fallback)
         if not pack:
             return pool, values
         groups = {}
@@ -500,85 +542,96 @@ class Agent:
         return float(result)
 
     def _next_transfer_pilot(self, candidates, exposure, budget, contacts, pilot_budget, iteration):
+        """Correlated knowledge gradient with the opportunity cost of contacts.
+
+        Adapted from our team's Temiku policy. History only proposes hypotheses;
+        public pilot results update the covariance and drive every later choice.
+        """
         reserve = min(c.n for c in candidates)
         contact_cap = min(contacts - reserve, self.transfer_contact_cap - sum(exposure.values()))
-        options = []
-        channel = "sms" if min(budget, pilot_budget) >= 40 else "push"
-        for c in candidates:
-            if c.channel != channel:
-                continue
-            i = self.arm_index[c.cell, c.target]
-            if self.posterior.counts[i] >= 3:
-                continue
-            factor, price = CHANNELS[channel][1], CHANNELS[channel][0]
-            sd = math.sqrt(self.posterior.variance[i])
-            precision = max(sd, abs(float(self.posterior.mean[i])), 0.03)
-            desired = max(40, min(200, math.ceil(1 / (factor * precision) ** 2)))
-            n = int(min(desired, max(10, c.n // 2), c.n, contact_cap))
-            if price:
-                n = min(n, int(min(budget, pilot_budget) // price))
-            if n >= 10:
-                options.append((c, i, n))
         if iteration == 0:
-            # One cheap, small pilot establishes a safe fallback even when all
-            # broader hypotheses are bad. Bounded error handling is shared below.
             choices = [c for c in candidates if c.channel == "push" and c.n <= contacts - 10]
             if not choices:
                 return None
             c = min(choices, key=lambda c: (c.arpu, c.cell, c.target))
             return c, int(min(30, c.n, contacts - c.n)), None
+        if contact_cap < 10:
+            return None
+        channel = "sms" if min(budget, pilot_budget) >= 40 else "push"
+        price, factor = CHANNELS[channel]
+        if price:
+            contact_cap = min(contact_cap, int(min(budget, pilot_budget) // price))
+        if contact_cap < 10:
+            return None
+        mean = self.posterior.mean
+        variance = self.posterior.variance
+        sd = np.sqrt(variance)
+        arpu_per_contact = self.arm_arpus / self.arm_sizes
+        values = mean * factor * arpu_per_contact - price
+        best_values = np.zeros(len(self.cell_ids))
+        second_values = np.zeros(len(self.cell_ids))
+        best_indices = np.zeros(len(self.cell_ids), dtype=int)
+        for cell in range(len(self.cell_ids)):
+            indices = np.flatnonzero(self.arm_cells == cell)
+            order = indices[np.argsort(values[indices], kind="stable")]
+            best_indices[cell] = order[-1]
+            best_values[cell] = values[order[-1]]
+            second_values[cell] = values[order[-2]] if len(order) > 1 else 0.0
+        exploration_reserve = min(max(0, self.transfer_contact_cap - sum(exposure.values())),
+                                  max(0, self.max_pilots - iteration) * 80)
+        capacity = max(reserve, contacts - exploration_reserve)
+        used, opportunity = 0, 0.0
+        for cell in np.argsort(-best_values, kind="stable"):
+            if best_values[cell] <= 0:
+                break
+            used += int(self.cell_sizes[cell])
+            if used > capacity:
+                opportunity = float(best_values[cell])
+                break
+        alternatives = np.where(np.arange(len(mean)) == best_indices[self.arm_cells],
+                                second_values[self.arm_cells], best_values[self.arm_cells])
+        threshold = (np.maximum(alternatives, opportunity) + price) / np.maximum(factor * arpu_per_contact, 1e-9)
+        options = []
+        for c in candidates:
+            if c.channel != channel:
+                continue
+            index = self.arm_index[c.cell, c.target]
+            count = self.posterior.counts[index]
+            if count >= 2 or c.n < 60 or abs(mean[index]) >= 2 * sd[index]:
+                continue
+            if count and (mean[index] + sd[index]) * factor * arpu_per_contact[index] - price <= opportunity:
+                continue
+            desired = (2 * 0.86 / factor / max(abs(mean[index]), sd[index], 1e-6)) ** 2
+            n = int(min(max(80, min(200, desired)), max(10, c.n // 2), contact_cap))
+            if n >= 10:
+                options.append((c, index, n))
         if not options:
             return None
-        # LLM can nominate at most two real experiments, never final campaigns or
-        # numeric effects. Its nominees pass the same resource checks as others.
         if self.llm_priority and iteration <= 2:
-            nominees = [(c, i, n) for c, i, n in options
-                        if c.campaign()["campaign_name"] in self.llm_priority and not self.posterior.counts[i]]
+            nominees = [item for item in options if item[0].campaign()["campaign_name"] in self.llm_priority
+                        and not self.posterior.counts[item[1]]]
             if nominees:
                 c, _, n = min(nominees, key=lambda item: self.llm_priority[item[0].campaign()["campaign_name"]])
                 return c, n, None
-        # Stratified warm start: expensive/high-ARPU cells must not exclude all
-        # other segments before their first informative SMS/push trial.
-        inspected_segments = {p['filter_arpu_segment'] for p in self.trace['pilots'][1:]}
-        uninspected = [(c, i, n) for c, i, n in options if c.segment not in inspected_segments]
-        if uninspected:
-            c, _, n = max(uninspected, key=lambda item: item[0].arpu *
-                          (self.posterior.mean[item[1]] + math.sqrt(self.posterior.variance[item[1]])))
-            return c, n, None
-        variance = self.posterior.variance
-        current = self._relaxed_value(self.posterior.mean, variance, exposure, budget, contacts)
-        weights = self.arm_arpus / np.bincount(self.arm_cells)[self.arm_cells]
-        information = np.abs(self.posterior.cov).T @ weights
-        ranked = sorted(options, key=lambda item: -(information[item[1]] /
-                        math.sqrt(variance[item[1]] + 1 / (item[2] * CHANNELS[item[0].channel][1] ** 2))))
-        shortlist, groups = [], set()
-        for segment in sorted({c.segment for c, _, _ in options}):
-            taken = 0
-            for item in ranked:
-                group = (item[0].segment, item[0].target)
-                if item[0].segment == segment and group not in groups:
-                    shortlist.append(item)
-                    groups.add(group)
-                    taken += 1
-                if taken >= 6:
-                    break
-        selected_ids = {i for _, i, _ in shortlist}
-        shortlist += [item for item in ranked if item[1] not in selected_ids][:8]
-        best = None
-        for c, index, n in shortlist:
-            factor, price = CHANNELS[c.channel][1], CHANNELS[c.channel][0]
-            denominator = variance[index] + 1 / (n * factor ** 2)
-            shift = self.posterior.cov[:, index] / math.sqrt(denominator)
-            next_variance = np.maximum(variance - shift ** 2, 1e-10)
-            next_exposure = {**exposure, c.cell: exposure.get(c.cell, 0) + n}
-            future = sum(weight * self._relaxed_value(self.posterior.mean + z * shift, next_variance,
-                         next_exposure, budget - n * price, contacts - n, extra=index)
-                         for z, weight in ((-math.sqrt(3), 1 / 6), (0, 2 / 3), (math.sqrt(3), 1 / 6)))
-            immediate = n * (float(self.posterior.mean[index]) * factor * c.arpu / c.n - price)
-            score = future - current + immediate
-            if best is None or score > best[2]:
-                best = c, n, score
-        return best if best and best[2] > 0 else None
+        indices = np.array([index for _, index, _ in options])
+        sizes = np.array([n for _, _, n in options])
+        noise = 0.86 ** 2 / (sizes * factor ** 2)
+        shift = np.abs(self.posterior.cov[:, indices]) / np.sqrt(variance[indices] + noise)
+        z = -np.abs(mean - threshold)[:, None] / np.maximum(shift, 1e-12)
+        x = -z / math.sqrt(2)
+        t = 1 / (1 + 0.3275911 * x)
+        erfc_scaled = t * (0.254829592 + t * (-0.284496736 + t *
+                          (1.421413741 + t * (-1.453152027 + t * 1.061405429))))
+        normal_improvement = np.maximum(0, z * 0.5 * erfc_scaled * np.exp(-x * x)
+                                        + np.exp(-0.5 * z * z) / math.sqrt(2 * math.pi))
+        kg = (factor * self.arm_arpus[:, None] * shift * normal_improvement).sum(axis=0)
+        scores = kg - sizes * (opportunity + price -
+                 np.minimum(mean[indices] * factor * arpu_per_contact[indices], 0))
+        selected = int(np.argmax(scores))
+        if scores[selected] <= 0:
+            return None
+        c, _, n = options[selected]
+        return c, n, float(scores[selected])
 
     def _plan(self, candidates, exposure, budget, contacts, extra=None, exact=False):
         if self.mode == "transfer":
@@ -665,7 +718,7 @@ class Agent:
             self.transfer_contact_cap = max(30, int(env.remaining_contacts * 0.25))
         self.trace = {"schema": 2, "mode": self.mode, "pilots": [], "pilot_failures": [], "decisions": [],
                       "assumptions": ["observed_lift_ratio is treated as channel-adjusted; confirm with organizers",
-                                      "Gaussian working noise scale=1; uncertainty is not calibrated",
+                                      "Gaussian working noise scale=0.86 in transfer, 1 in legacy modes; uncertainty is not calibrated",
                                       "pilot overlap is conservatively approximated, not observed by ID"],
                       "candidate_count": len(candidates)}
         self.trace["settings"] = {"risk_weight": self.risk_weight, "max_pilots": self.max_pilots}

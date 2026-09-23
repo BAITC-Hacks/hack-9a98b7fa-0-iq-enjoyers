@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 import re
 import subprocess
 
@@ -17,18 +17,22 @@ def check_path(name):
     path = PurePosixPath(name)
     if path.name.startswith(".env") and path.name != ".env.example":
         return "local environment file"
-    if any(part in {"artifacts", "data", ".venv", ".venv-agent", "__pycache__", "organizer_questions"} for part in path.parts):
+    if any(part in {"artifacts", "data", "models", ".venv", ".venv-agent", "__pycache__", "organizer_questions"} for part in path.parts):
         return "private/generated directory"
-    if path.suffix.lower() in {".zip", ".pem", ".key", ".csv"}:
+    if path.suffix.lower() in {".zip", ".pem", ".key", ".csv", ".gguf", ".safetensors"}:
         return "raw data/archive/key file"
     return None
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tracked", action="store_true", help="scan all tracked files (for CI)")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--tracked", action="store_true", help="scan all tracked files in index (for CI)")
+    group.add_argument("--worktree", action="store_true", help="scan current tracked/untracked non-ignored files without staging")
     args = parser.parse_args()
-    command = ["git", "ls-files", "-z"] if args.tracked else ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"]
+    command = (["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"] if args.worktree else
+               ["git", "ls-files", "-z"] if args.tracked else
+               ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"])
     names = subprocess.check_output(command).decode().split("\0")
     problems, checked = [], 0
     for name in filter(None, names):
@@ -37,7 +41,9 @@ def main():
         if reason:
             problems.append(f"{name}: {reason}")
             continue
-        content = subprocess.check_output(["git", "show", f":{name}"])
+        if args.worktree and not Path(name).is_file():
+            continue  # Deleted tracked path is not part of the current source snapshot.
+        content = Path(name).read_bytes() if args.worktree else subprocess.check_output(["git", "show", f":{name}"])
         for label, pattern in PATTERNS.items():
             if pattern.search(content):
                 problems.append(f"{name}: {label} (value redacted)")

@@ -2,11 +2,14 @@
 import csv
 import json
 import zipfile
+from argparse import Namespace
 
 import pytest
 
 import run
 from scripts.validate_run import ValidationError, validate_run
+from scripts.run_case import strategy_settings
+from scripts.render_report import render_report
 
 
 def test_bundle_autodetection_and_explicit_path_with_spaces(tmp_path):
@@ -143,3 +146,22 @@ def test_validator_requires_all_traces(public_run):
     work, traces, _, _ = public_run
     with pytest.raises(ValidationError, match="Missing"):
         validate_run(work, traces, expected_runs=2)
+
+
+@pytest.mark.parametrize("field,value", [("risk_weight", float("nan")), ("risk_weight", -1),
+                                       ("max_pilots", 21), ("llm_timeout", 60)])
+def test_strategy_cli_rejects_invalid_settings(field, value):
+    args = Namespace(mode="fixed", risk_weight=0.75, max_pilots=20, llm_model="", llm_timeout=8)
+    setattr(args, field, value)
+    with pytest.raises(ValueError):
+        strategy_settings(args)
+
+
+def test_report_escapes_untrusted_model_text_and_is_self_contained():
+    report = json.loads((run.ROOT / "demo/example_report.json").read_text())
+    report["trace"]["llm"] = {"status": "accepted", "rationale": '<script>alert("x")</script>', "used": True}
+    rendered = render_report(report)
+    assert "&lt;script&gt;" in rendered and "<script>" not in rendered
+    assert "<script src=" not in rendered and "<link" not in rendered
+    assert "сохранённый пример" in rendered
+    assert "не фактическая прибыль" in rendered

@@ -1,0 +1,36 @@
+{
+  "checked_on": "2026-09-23",
+  "scope": "Two supplied Beeline files in Downloads; public guides/template and seven allowed CSVs only.",
+  "unchanged_from_saved_audit": true,
+  "bundle_sha256": "df1d955fb97816ff6de8ceb142ed589915d969f43f840a650dcdfbe12734f20b",
+  "supplied_document_sha256": "b261a5df8e2555bce5f3ac1545a4daf8a8e5a308c3609bf7c04e7904b4d37e4a",
+  "document_actual_format": "PDF",
+  "document_pages": 4,
+  "document_identical_to_archive_guide": true,
+  "rows_by_csv": {
+    "customer_profile.csv": 23441,
+    "data/change_tariff.csv": 14823,
+    "data/traffic.csv": 75736,
+    "data/arpu_monthly.csv": 78798,
+    "data/dict_tariff.csv": 21,
+    "tariff_dictionary.csv": 21,
+    "feature_dictionary.csv": 38
+  },
+  "history_rows": 14823,
+  "guide_claimed_history_rows": 14824,
+  "exact_duplicate_history_extra_rows": 6,
+  "target_history_id_overlap": {
+    "change_tariff": 0,
+    "traffic": 0,
+    "arpu_monthly": 0
+  },
+  "already_published_code_commit": "d8e1d4086b99896d2cf0dd37c6cb59d2b863b9e4",
+  "branch": "work/profitpilot-mvp",
+  "current_recheck_saved_locally": true,
+  "outstanding_questions": [
+    "Guide allows LLM and 10 minutes; template line 11 says offline and 5 minutes.",
+    "Guide provides key variable name but no provider/model/endpoint.",
+    "Public pilot return example does not fully explain channel normalization.",
+    "25-point no-edit startup criterion not present in the supplied guide."
+  ]
+}

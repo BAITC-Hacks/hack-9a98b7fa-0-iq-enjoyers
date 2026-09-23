@@ -99,16 +99,41 @@ def prepare_environment(offline=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    from scripts.run_case import add_strategy_arguments, strategy_settings
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--bundle", type=Path, help="organizer ZIP; otherwise detect in project/Downloads")
     parser.add_argument("--runs", type=int, default=10)
     parser.add_argument("--offline", action="store_true", help="never install or download dependencies")
     parser.add_argument("--prepare-only", action="store_true", help="install dependencies before going offline")
+    parser.add_argument("--doctor", action="store_true", help="read-only readiness check, no installs or submission")
+    parser.add_argument("--demo", action="store_true", help="openable offline HTML example; no ZIP, packages or LLM needed")
+    add_strategy_arguments(parser)
     args = parser.parse_args()
     if sys.version_info < (3, 11):
         parser.error("Требуется Python 3.11 или новее; рекомендуется Python 3.13.")
     if not 1 <= args.runs <= 100:
         parser.error("--runs должен быть от 1 до 100")
+    settings = strategy_settings(args)
+    if sum((args.doctor, args.demo, args.prepare_only)) > 1:
+        parser.error("Выберите только один из --doctor / --demo / --prepare-only")
+    if args.doctor:
+        from scripts.doctor import diagnose
+        report = diagnose(ROOT, args.bundle)
+        for check in report["checks"]:
+            print(f"[{'OK' if check['ok'] else 'TODO'}] {check['check']}: {check['detail']}")
+        print(f"Ветка: {report['branch']}; Ollama установлен: {report['ollama_installed']}")
+        for note in report["notes"]:
+            print(note)
+        raise SystemExit(0 if report["core_ready"] else 2)
+    if args.demo:
+        from scripts.render_report import render_report
+        report = json.loads((ROOT / "demo/example_report.json").read_text(encoding="utf-8"))
+        folder = ROOT / "artifacts" / ("demo-" + uuid.uuid4().hex[:8])
+        folder.mkdir(parents=True)
+        destination = folder / "report.html"
+        destination.write_text(render_report(report), encoding="utf-8")
+        print(f"Демо сохранённого результата (не новый прогон). Откройте: {destination}")
+        return
     bundle = None if args.prepare_only else choose_bundle(args.bundle)
     if bundle:
         inspect_bundle(bundle)
@@ -121,11 +146,12 @@ def main():
     print("[2/4] Проверяю регрессионные тесты", flush=True)
     execute([python, "-m", "pytest", "tests", "-q"], timeout=120)
     print(f"[3/4] Официальная оценка: {args.runs} запусков", flush=True)
+    strategy_cli = [part for key, value in settings.items() for part in ("--" + key.replace("_", "-"), str(value))]
     execute([python, "scripts/run_case.py", "--bundle", bundle, "--runs", args.runs,
-             "--output-dir", run_dir / "evaluation"], timeout=300 * args.runs + 30)
+             "--output-dir", run_dir / "evaluation", *strategy_cli], timeout=300 * args.runs + 30)
     print("[4/4] Генерирую и проверяю submission.csv", flush=True)
     execute([python, "scripts/run_case.py", "--bundle", bundle, "--make-submission",
-             "--output-dir", run_dir / "submission"], timeout=330)
+             "--output-dir", run_dir / "submission", *strategy_cli], timeout=330)
     evaluation = json.loads((run_dir / "evaluation/manifest.json").read_text())
     submission = json.loads((run_dir / "submission/manifest.json").read_text())
     if not evaluation.get("validation", {}).get("valid") or not submission.get("validation", {}).get("valid"):
@@ -135,28 +161,38 @@ def main():
     for source, name in ((ROOT / "agent.py", "agent.py"),
                          (ROOT / "requirements-agent.txt", "requirements.txt"),
                          (ROOT / "THIRD_PARTY.md", "THIRD_PARTY.md"),
+                         (run_dir / "submission/bundle/profitpilot_config.json", "profitpilot_config.json"),
                          (run_dir / "submission/bundle/submission.csv", "submission.csv")):
         shutil.copyfile(source, package / name)
     (package / "START_HERE.txt").write_text(
         "ProfitPilot / HackAlem Beeline\n"
         "Python >=3.11 (tested on 3.13).\n"
         "Install: python3 -m pip install -r requirements.txt\n"
-        "Place agent.py into the organizer bundle, keep its public data/ files.\n"
+        "Place agent.py and profitpilot_config.json into the organizer bundle; keep its public data/ files.\n"
         "Run: python3 local_eval.py\n"
         "Generate again: python3 make_submission.py\n"
-        "No API keys or runtime Internet required. Do not publish organizer data.\n",
+        "No API keys or external API required. Optional LLM needs local Ollama weights prepared in advance.\n"
+        "If the local LLM is unavailable, numerical fallback applies and may change the generated plan.\n"
+        "Do not publish organizer data. This script never submits or uploads the package.\n",
         encoding="utf-8")
     scores = [r["net"] for r in evaluation.get("net_by_seed", [])]
     if not scores and evaluation.get("single_net") is not None:
         scores = [evaluation["single_net"]]
-    summary = {"technical_checks_passed": True, "mode": "fixed", "offline": args.offline,
+    from scripts.render_report import report_from_run, render_report
+    report = report_from_run(run_dir)
+    (run_dir / "report.html").write_text(render_report(report), encoding="utf-8")
+    summary = {"technical_checks_passed": True, "mode": args.mode, "settings": settings, "offline": args.offline,
                "evaluation": evaluation["validation"], "submission": submission["validation"],
                "positive_runs": sum(v > 0 for v in scores), "scored_runs": len(scores),
                "profit_guaranteed": False,
+               "submission_llm": report["trace"].get("llm"),
                "files": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in package.iterdir()}}
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(f"\nГОТОВО. Файлы для сдачи: {package}")
     print(f"Проверки и отчёты: {run_dir / 'summary.json'}")
+    print(f"Наглядный локальный отчёт: {run_dir / 'report.html'}")
+    if args.llm_model and not report["trace"].get("llm", {}).get("used"):
+        print("LLM НЕ использована: выполнен численный fallback. Подробности в журнале; это не тест качества модели.")
     if any(v < 0 for v in scores):
         print("Внимание: есть убыточные сценарии. Техническая корректность не означает гарантии прибыли.")
 

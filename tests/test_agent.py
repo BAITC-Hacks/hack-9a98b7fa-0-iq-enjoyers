@@ -243,3 +243,29 @@ def test_missing_scipy_has_valid_fallback(monkeypatch):
     monkeypatch.setattr(agent, "milp", None)
     pool = [candidate(0), candidate(1, channel="push")]
     assert feasible(allocate(pool, [100, 200], 200, 100), pool, 200, 100)
+
+
+def test_llm_fallback_preserves_default_decisions(monkeypatch, tmp_path):
+    import agent
+    def failed(*args, **kwargs):
+        raise ConnectionRefusedError()
+    monkeypatch.setattr(agent, "_ollama_request", failed)
+    plain = Agent(history_path=tmp_path / "none", max_pilots=5).act(PublicTestEnv())
+    configured = Agent(history_path=tmp_path / "none", max_pilots=5, llm_model="test-local")
+    assert configured.act(PublicTestEnv()) == plain
+    assert configured.trace["llm"]["status"] == "fallback"
+
+
+def test_llm_can_prioritize_a_valid_pilot_without_bypassing_limits(monkeypatch, tmp_path):
+    import agent
+    requested = []
+    def advise(options, model, timeout):
+        target = options[-1]["candidate_id"]
+        requested.append(target)
+        return [target], {"status": "accepted", "used": True}
+    monkeypatch.setattr(agent, "local_pilot_priority", advise)
+    env = PublicTestEnv()
+    configured = Agent(history_path=tmp_path / "none", max_pilots=5, llm_model="test-local")
+    campaigns = configured.act(env)
+    assert any(p["campaign_name"] == requested[0] for p in configured.trace["pilots"])
+    assert campaigns and configured.trace["final_cost"] <= env.remaining_budget

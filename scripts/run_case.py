@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 from pathlib import Path
@@ -28,17 +29,41 @@ FILES = {
 }
 
 
+def add_strategy_arguments(parser):
+    parser.add_argument("--mode", choices=["transfer", "adaptive", "fixed"], default="transfer")
+    parser.add_argument("--risk-weight", type=float, default=0.75, help="conservative penalty: 0..5 (not calibrated confidence)")
+    parser.add_argument("--max-pilots", type=int, default=20, help="pilot request cap: 1..20")
+    parser.add_argument("--llm-model", default="", help="optional locally installed Ollama model; never downloads weights")
+    parser.add_argument("--llm-timeout", type=float, default=8.0, help="local generation socket timeout: 0.1..20 seconds")
+
+
+def strategy_settings(args):
+    if not math.isfinite(args.risk_weight) or not 0 <= args.risk_weight <= 5:
+        raise ValueError("--risk-weight must be between 0 and 5")
+    if not 1 <= args.max_pilots <= 20:
+        raise ValueError("--max-pilots must be between 1 and 20")
+    if not math.isfinite(args.llm_timeout) or not 0.1 <= args.llm_timeout <= 20:
+        raise ValueError("--llm-timeout must be between 0.1 and 20 seconds")
+    if args.llm_model and args.mode == "adaptive":
+        raise ValueError("Local LLM hypothesis ranking supports --mode transfer or fixed")
+    return {key: getattr(args, key) for key in ("mode", "risk_weight", "max_pilots", "llm_model", "llm_timeout")}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--agent", type=Path, default=ROOT / "agent.py")
     parser.add_argument("--runs", type=int, default=1)
-    parser.add_argument("--mode", choices=["adaptive", "fixed"], default="fixed")
+    add_strategy_arguments(parser)
     parser.add_argument("--baseline", action="store_true")
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--make-submission", action="store_true")
     parser.add_argument("--output-dir", type=Path, help="new directory for this run (must not exist)")
     args = parser.parse_args()
+    try:
+        settings = strategy_settings(args)
+    except ValueError as error:
+        parser.error(str(error))
     if not 1 <= args.runs <= 100:
         parser.error("--runs must be between 1 and 100")
     if not args.bundle.is_file():
@@ -64,10 +89,11 @@ def main():
             destination.write_bytes(archive.read(info))
     source = work / "agent_template.py" if args.baseline else args.agent.resolve()
     shutil.copyfile(source, work / "agent.py")
+    (work / "profitpilot_config.json").write_text(json.dumps(settings, indent=2), encoding="utf-8")
     manifest = {
         "bundle_sha256": hashlib.sha256(args.bundle.read_bytes()).hexdigest(),
         "agent_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
-        "baseline": args.baseline, "mode": args.mode, "runs": args.runs,
+        "baseline": args.baseline, "mode": args.mode, "settings": settings, "runs": args.runs,
         "python": sys.version, "status": "prepared", "workdir": str(work),
     }
     manifest_path = run_dir / "manifest.json"
